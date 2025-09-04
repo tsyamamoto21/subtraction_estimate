@@ -7,14 +7,19 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from astropy.constants import G, c, M_sun
 from astropy.cosmology import Planck18 as cosmo
-import foreground as fg
-import population as pop
+import subtraction.foreground as fg
+import subtraction.population as pop
 import matplotlib as mpl
 mpl.rcParams['font.size'] = 14
 mpl.rcParams['figure.figsize'] = (8, 6)
 
-
 REDSHIFT_RESOLUTION = 1e-3
+MINIMUM_REDSHIFT = 0
+MAXIMUM_REDSHIFT = 10
+MINIMUM_FREQUENCY = 1e-4
+MAXIMUM_FREQUENCY = 1e+4
+N_FREQUENCY = 200
+OBSERVATIONAL_PERIOD = 3
 
 
 def get_initial_guess_for_zth(snr_threshold, mc, zlim, ndet=1):
@@ -24,33 +29,37 @@ def get_initial_guess_for_zth(snr_threshold, mc, zlim, ndet=1):
     return x0
 
 
-def main(args, config):
+def main(args):
 
     snr_threshold = args.snrthreshold
     number_of_baselines = args.ndet
 
     # Parameters
-    fmin = config.getfloat('parameters', 'fmin')
-    fmax = config.getfloat('parameters', 'fmax')
-    nf = config.getint('parameters', 'nf')
-    # tobs = config.getfloat('parameters', 'tobs') * u.yr
-    zmin = config.getfloat('parameters', 'zmin')
-    zmax = config.getfloat('parameters', 'zmax')
-    # dz = config.getfloat('parameters', 'dz')
-    dz = REDSHIFT_RESOLUTION
-    local_merger_rate_desnity = config.getfloat('parameters', 'local_merger_rate_density')
-    nsample = config.getint('parameters', 'nsample')
+    # fmin = config.getfloat('parameters', 'fmin')
+    # fmax = config.getfloat('parameters', 'fmax')
+    # nf = config.getint('parameters', 'nf')
+    # # tobs = config.getfloat('parameters', 'tobs') * u.yr
+    # zmin = config.getfloat('parameters', 'zmin')
+    # zmax = config.getfloat('parameters', 'zmax')
+    # # dz = config.getfloat('parameters', 'dz')
+    # dz = REDSHIFT_RESOLUTION
+    # local_merger_rate_density = config.getfloat('parameters', 'local_merger_rate_density')
+    # nsample = config.getint('parameters', 'nsample')
+    local_merger_rate_density = args.local_merger_rate_density
 
     # Get the merger rate density as a function of a redshift
-    normalized_merger_rate_density_file = config.get('filename', 'normalized_merger_rate_density_file')
+    # normalized_merger_rate_density_file = config.get('filename', 'normalized_merger_rate_density_file')
+    normalized_merger_rate_density_file = args.merger_rate_file
     merger_rate_density_norm = np.genfromtxt(normalized_merger_rate_density_file)
-    merger_rate_density = merger_rate_density_norm[:, 1] * local_merger_rate_desnity
+    merger_rate_density = merger_rate_density_norm[:, 1] * local_merger_rate_density
     z = merger_rate_density_norm[:, 0]
     # Interpolate
     merger_rate_density_func = interp1d(z, merger_rate_density)
 
-    nsample = config.getint('parameters', 'nsample')
-    massdistribution = pop.BinaryMassDistribution(config, kind=args.kind)
+    # nsample = config.getint('parameters', 'nsample')
+    nsample = args.nsample
+    # massdistribution = pop.BinaryMassDistribution(config, kind=args.kind)
+    massdistribution = pop.GWTC4_BrokenPowerlawPlusTwoPeak()
     samples = massdistribution.get_samples(nsample)
     m1sample = samples[0]
     m2sample = samples[1]
@@ -76,13 +85,13 @@ def main(args, config):
         d2 = 5 * c**5 / (256.0 * np.pi**(8.0 / 3.0) * (G * mc * M_sun)**(5.0 / 3.0))  # \delta_2 in Rosado
         Tmax = cosmo.age(0.0)
         fmin_insp = ((Tmax / d2)**(-3.0 / 8.0)).to('s-1').value
-        zupper = fg.get_zupper(fsample, zmin, zmax, fmax_insp)
-        zlower = fg.get_zlower(fsample, zmin, zmax, fmin_insp)
+        zupper = fg.get_zupper(fsample, MINIMUM_REDSHIFT, MAXIMUM_REDSHIFT, fmax_insp)
+        zlower = fg.get_zlower(fsample, MINIMUM_REDSHIFT, MAXIMUM_REDSHIFT, fmin_insp)
 
         # Get zbar
         zbarlist = []
         # flgs_all_less_unity = []
-        for j in range(nf):
+        for j in range(N_FREQUENCY):
             n_overlap = ofdata['overlap function'][:, j]
             if np.all(n_overlap < 1.0):
                 z_root = zupper[j]
@@ -96,19 +105,19 @@ def main(args, config):
         # Get zbar_threshold
         snr = fg.get_inspiral_snr(fsample, m1, m2, zsample, cosmo, fg.Sn_DECIGO, ndet=number_of_baselines)
         if np.all(snr > snr_threshold):
-            z_threshold = zmax
+            z_threshold = MAXIMUM_REDSHIFT
         else:
-            x0 = get_initial_guess_for_zth(snr_threshold, mc, zlim=zmax, ndet=number_of_baselines)
+            x0 = get_initial_guess_for_zth(snr_threshold, mc, zlim=MAXIMUM_REDSHIFT, ndet=number_of_baselines)
             z_threshold = root(lambda zi: interp1d(zsample, snr, bounds_error=False, fill_value="extrapolate")(zi) - snr_threshold, x0=x0).x
         zbar_th = np.minimum(z_threshold, zbarlist)
 
         # Calculate Omega_gw [full, unresolvable]
-        Omega_gw_full += fg.get_Omega_gw_with_frequncy_dependent_zrange(fsample, mc, merger_rate_density_func, cosmo, zlower, zupper, dz=dz)
-        Omega_gw_unresolvable += fg.get_Omega_gw_with_frequncy_dependent_zrange(fsample, mc, merger_rate_density_func, cosmo, zbarlist, zupper, dz=dz)
-        Omega_gw_separable += fg.get_Omega_gw_with_frequncy_dependent_zrange(fsample, mc, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, dz=dz)
-        Omega_gw_subthreshold += fg.get_Omega_gw_with_frequncy_dependent_zrange(fsample, mc, merger_rate_density_func, cosmo, zmin=zbar_th, zmax=zbarlist, dz=dz)
-        Omega_gw_err_nonprojected += fg.get_Omega_error_with_frequncy_dependent_zrange(fsample, m1, m2, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, psd=fg.Sn_DECIGO, ndet=number_of_baselines, dz=dz, projection=False)
-        Omega_gw_err_projected += fg.get_Omega_error_with_frequncy_dependent_zrange(fsample, m1, m2, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, psd=fg.Sn_DECIGO, ndet=number_of_baselines, dz=dz, projection=True)
+        Omega_gw_full += fg.get_Omega_gw_with_frequncy_dependent_zrange(fsample, mc, merger_rate_density_func, cosmo, zlower, zupper, dz=REDSHIFT_RESOLUTION)
+        Omega_gw_unresolvable += fg.get_Omega_gw_with_frequncy_dependent_zrange(fsample, mc, merger_rate_density_func, cosmo, zbarlist, zupper, dz=REDSHIFT_RESOLUTION)
+        Omega_gw_separable += fg.get_Omega_gw_with_frequncy_dependent_zrange(fsample, mc, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, dz=REDSHIFT_RESOLUTION)
+        Omega_gw_subthreshold += fg.get_Omega_gw_with_frequncy_dependent_zrange(fsample, mc, merger_rate_density_func, cosmo, zmin=zbar_th, zmax=zbarlist, dz=REDSHIFT_RESOLUTION)
+        Omega_gw_err_nonprojected += fg.get_Omega_error_with_frequncy_dependent_zrange(fsample, m1, m2, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, psd=fg.Sn_DECIGO, ndet=number_of_baselines, dz=REDSHIFT_RESOLUTION, projection=False)
+        Omega_gw_err_projected += fg.get_Omega_error_with_frequncy_dependent_zrange(fsample, m1, m2, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, psd=fg.Sn_DECIGO, ndet=number_of_baselines, dz=REDSHIFT_RESOLUTION, projection=True)
 
     Omega_gw_full /= nsample
     Omega_gw_unresolvable /= nsample
@@ -117,7 +126,7 @@ def main(args, config):
     Omega_gw_err_nonprojected /= nsample
     Omega_gw_err_projected /= nsample
 
-    with open(f'{args.outdir}/omegagw_th{snr_threshold:.1f}_rate{local_merger_rate_desnity:.1f}.txt', 'w') as fo:
+    with open(f'{args.outdir}/omegagw_th{snr_threshold:.1f}_rate{local_merger_rate_density:.1f}.txt', 'w') as fo:
         fo.write('# Frequency    Unresolvable    Separable    Subthreshold    Err    Err(projected)    Full\n')
         for i in range(len(fsample)):
             fo.write(f'{fsample[i]} {Omega_gw_unresolvable[i]} {Omega_gw_separable[i]} {Omega_gw_subthreshold[i]} {Omega_gw_err_nonprojected[i]} {Omega_gw_err_projected[i]} {Omega_gw_full[i]}\n')
@@ -127,8 +136,8 @@ def main(args, config):
     plt.plot(fsample, np.ones_like(fsample) * z_threshold, linestyle='--', label=r'$z_\mathrm{th}$', lw=3)
     plt.plot(fsample, zbarlist, label=r'$\bar{z}$', linestyle=':', lw=3)
     plt.xscale('log')
-    plt.xlim([fmin, fmax])
-    plt.ylim([zmin, zmax + 0.5])
+    plt.xlim([MINIMUM_FREQUENCY, MAXIMUM_FREQUENCY])
+    plt.ylim([MINIMUM_REDSHIFT, MAXIMUM_REDSHIFT + 0.5])
     plt.xlabel('Frequency [Hz]')
     plt.ylabel('Redshift')
     plt.grid()
@@ -142,32 +151,35 @@ def main(args, config):
     plt.loglog(fsample, Omega_gw_subthreshold, label='subthreshold', lw=3, linestyle=':')
     plt.loglog(fsample, Omega_gw_err_nonprojected, label='err', lw=3, linestyle='-.')
     plt.loglog(fsample, Omega_gw_err_projected, label='err(projected)', lw=3, linestyle='-.')
-    plt.xlim([fmin, fmax * 1.5])
+    plt.xlim([MINIMUM_FREQUENCY, MAXIMUM_FREQUENCY * 1.5])
     plt.ylim([1.0e-17, 1.0e-8])
     plt.xlabel('Frequency [Hz]')
     plt.ylabel(r'$\Omega_\mathrm{gw}(f)$')
-    plt.title(f'{args.kind}, SNR threshold = {snr_threshold:.1f}, ' + r'$R_0 = $' + f'{local_merger_rate_desnity:.1f}' + r'$[\mathrm{Gpc^{-3} yr^{-1}}]$', fontsize=12)
+    plt.title(f'{args.kind}, SNR threshold = {snr_threshold:.1f}, ' + r'$R_0 = $' + f'{local_merger_rate_density:.1f}' + r'$[\mathrm{Gpc^{-3} yr^{-1}}]$', fontsize=12)
     plt.grid()
     plt.legend(fontsize=12)
-    plt.savefig(f'{args.outdir}/OmegaGWs_th{snr_threshold:.1f}_rate{local_merger_rate_desnity:.1f}.pdf')
+    plt.savefig(f'{args.outdir}/OmegaGWs_th{snr_threshold:.1f}_rate{local_merger_rate_density:.1f}.pdf')
     plt.show()
 
 
 if __name__ == '__main__':
     import argparse
-    import configparser
+    # import configparser
     parser = argparse.ArgumentParser(description="Calculate overlap function")
     parser.add_argument('--outdir', type=str, help='Output directory.')
-    parser.add_argument('--kind', type=str, help='BBH or BNS')
+    # parser.add_argument('--kind', type=str, help='BBH or BNS')
+    parser.add_argument('--merger_rate_file', type=str, help='Path to the file of normalized merger rate density')
+    parser.add_argument('--local_merger_rate_density', type=int, help='Local merger rate density in Gpc-3 yr-1')
+    parser.add_argument('--nsample', type=int, help='The number of samples for MC integration.')
     parser.add_argument('--snrthreshold', type=int, help='SNR threshold')
     parser.add_argument('--ndet', type=int, help='The number of baselines')
     args = parser.parse_args()
 
-    # Generate a ConfigParser object
-    config = configparser.ConfigParser()
-    # Read an ini file
-    if args.kind == 'BBH':
-        config.read('bbh.ini')
-    elif args.kind == 'BNS':
-        config.read('bns.ini')
-    main(args, config)
+    # # Generate a ConfigParser object
+    # config = configparser.ConfigParser()
+    # # Read an ini file
+    # if args.kind == 'BBH':
+    #     config.read('bbh.ini')
+    # elif args.kind == 'BNS':
+    #     config.read('bns.ini')
+    main(args)
