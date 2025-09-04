@@ -42,6 +42,8 @@ def main(args):
     # Files and directories
     # normalized_merger_rate_density_file = config.get('filename', 'normalized_merger_rate_density_file')
     outdir = args.outdir
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
     file_overlap_function = f'{outdir}/overlap_function.pkl'
     figure_overlap_function = f'{outdir}/overlap_function.pdf'
     if os.path.exists(file_overlap_function) and (not args.force):
@@ -63,14 +65,14 @@ def main(args):
     # nsample = config.getint('parameters', 'nsample')
 
     # massdistribution = pop.BinaryMassDistribution(config, kind=args.kind)
-    massdistribution = pop.GWTC4_BrokenPowerlawPlusTwoPeak()
+    massdistribution = pop.GWTC4_SimpleUniformBNS()
     samples = massdistribution.get_samples(args.nsample)
     m1sample = samples[0]
     m2sample = samples[1]
 
     # Get the merger rate density as a function of a redshift
     merger_rate_density_norm = np.genfromtxt(args.merger_rate_file)
-    merger_rate_density = merger_rate_density_norm[:, 1] * args.local_merger_rate_desnity
+    merger_rate_density = merger_rate_density_norm[:, 1] * args.local_merger_rate_density
     z = merger_rate_density_norm[:, 0]
     # Interpolate
     merger_rate_density_func = interp1d(z, merger_rate_density)
