@@ -53,19 +53,7 @@ def main(args):
         # logging.error(f"File '{file_overlap_function}' already exists.")
         raise FileExistsError(f"The file '{figure_overlap_function}' already exists.")
 
-    # Parameters
-    # fmin = config.getfloat('parameters', 'fmin')
-    # fmax = config.getfloat('parameters', 'fmax')
-    # nf = config.getint('parameters', 'nf')
-    # tobs = config.getfloat('parameters', 'tobs') * u.yr
-    # zmin = config.getfloat('parameters', 'zmin')
-    # zmax = config.getfloat('parameters', 'zmax')
-    # dz = config.getfloat('parameters', 'dz')
-    # local_merger_rate_desnity = config.getfloat('parameters', 'local_merger_rate_density')
-    # nsample = config.getint('parameters', 'nsample')
-
-    # massdistribution = pop.BinaryMassDistribution(config, kind=args.kind)
-    massdistribution = pop.GWTC4_SimpleUniformBNS()
+    massdistribution = pop.GWTC4_BrokenPowerlawPlusTwoPeak()
     samples = massdistribution.get_samples(args.nsample)
     m1sample = samples[0]
     m2sample = samples[1]

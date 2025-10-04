@@ -35,20 +35,9 @@ def main(args):
     number_of_baselines = args.ndet
 
     # Parameters
-    # fmin = config.getfloat('parameters', 'fmin')
-    # fmax = config.getfloat('parameters', 'fmax')
-    # nf = config.getint('parameters', 'nf')
-    # # tobs = config.getfloat('parameters', 'tobs') * u.yr
-    # zmin = config.getfloat('parameters', 'zmin')
-    # zmax = config.getfloat('parameters', 'zmax')
-    # # dz = config.getfloat('parameters', 'dz')
-    # dz = REDSHIFT_RESOLUTION
-    # local_merger_rate_density = config.getfloat('parameters', 'local_merger_rate_density')
-    # nsample = config.getint('parameters', 'nsample')
     local_merger_rate_density = args.local_merger_rate_density
 
     # Get the merger rate density as a function of a redshift
-    # normalized_merger_rate_density_file = config.get('filename', 'normalized_merger_rate_density_file')
     normalized_merger_rate_density_file = args.merger_rate_file
     merger_rate_density_norm = np.genfromtxt(normalized_merger_rate_density_file)
     merger_rate_density = merger_rate_density_norm[:, 1] * local_merger_rate_density
@@ -56,10 +45,9 @@ def main(args):
     # Interpolate
     merger_rate_density_func = interp1d(z, merger_rate_density)
 
-    # nsample = config.getint('parameters', 'nsample')
     nsample = args.nsample
-    # massdistribution = pop.BinaryMassDistribution(config, kind=args.kind)
-    massdistribution = pop.GWTC4_BrokenPowerlawPlusTwoPeak()
+    # massdistribution = pop.GWTC4_BrokenPowerlawPlusTwoPeak()
+    massdistribution = pop.GWTC4_SimpleUniformBNS()
     samples = massdistribution.get_samples(nsample)
     m1sample = samples[0]
     m2sample = samples[1]
@@ -97,7 +85,7 @@ def main(args):
                 z_root = zupper[j]
                 # flgs_all_less_unity.append(1)
             else:
-                n_overlap_interp = interp1d(zsample, n_overlap)
+                n_overlap_interp = interp1d(zsample, n_overlap, bounds_error=False, fill_value='extrapolate')
                 z_root = root(lambda z: n_overlap_interp(z) - 1, x0=1.0).x[0]
                 # flgs_all_less_unity.append(0)
             zbarlist.append(z_root)
@@ -155,7 +143,7 @@ def main(args):
     plt.ylim([1.0e-17, 1.0e-8])
     plt.xlabel('Frequency [Hz]')
     plt.ylabel(r'$\Omega_\mathrm{gw}(f)$')
-    plt.title(f'{args.kind}, SNR threshold = {snr_threshold:.1f}, ' + r'$R_0 = $' + f'{local_merger_rate_density:.1f}' + r'$[\mathrm{Gpc^{-3} yr^{-1}}]$', fontsize=12)
+    plt.title(f'SNR threshold = {snr_threshold:.1f}, ' + r'$R_0 = $' + f'{local_merger_rate_density:.1f}' + r'$[\mathrm{Gpc^{-3} yr^{-1}}]$', fontsize=12)
     plt.grid()
     plt.legend(fontsize=12)
     plt.savefig(f'{args.outdir}/OmegaGWs_th{snr_threshold:.1f}_rate{local_merger_rate_density:.1f}.pdf')
