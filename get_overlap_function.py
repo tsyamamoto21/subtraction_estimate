@@ -44,8 +44,8 @@ def main(args):
     outdir = args.outdir
     if not os.path.exists(outdir):
         os.makedirs(outdir)
-    file_overlap_function = f'{outdir}/overlap_function.pkl'
-    figure_overlap_function = f'{outdir}/overlap_function.pdf'
+    file_overlap_function = os.path.join(outdir, 'overlap_function.pkl')
+    figure_overlap_function = os.path.join(outdir, 'overlap_function.pdf')
     if os.path.exists(file_overlap_function) and (not args.force):
         # logging.error(f"File '{file_overlap_function}' already exists.")
         raise FileExistsError(f"The file '{file_overlap_function}' already exists.")

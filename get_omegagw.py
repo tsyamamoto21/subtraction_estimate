@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os
 import pickle
 import numpy as np
 from scipy.interpolate import interp1d
@@ -20,10 +21,12 @@ MINIMUM_FREQUENCY = 1e-4
 MAXIMUM_FREQUENCY = 1e+4
 N_FREQUENCY = 200
 OBSERVATIONAL_PERIOD = 3
+CHANNELS = 8  # (A, E) x 4 triangles
+CORRELATIONS = 2  # AA' and EE' from Davide's star
 
 
-def get_initial_guess_for_zth(snr_threshold, mc, zlim, ndet=1):
-    x0 = ((20.0 / snr_threshold) * (mc / 1.4)**(5.0 / 6.0) / np.sqrt(ndet))**(15.0 / 13.0)
+def get_initial_guess_for_zth(snr_threshold, mc, zlim, nchannel=1):
+    x0 = ((20.0 / snr_threshold) * (mc / 1.4)**(5.0 / 6.0) / np.sqrt(nchannel))**(15.0 / 13.0)
     if x0 > zlim:
         x0 *= 0.8
     return x0
@@ -32,7 +35,9 @@ def get_initial_guess_for_zth(snr_threshold, mc, zlim, ndet=1):
 def main(args):
 
     snr_threshold = args.snrthreshold
-    number_of_baselines = args.ndet
+
+    # PSD
+    psd = fg.Sn_DECIGO_SetoYagi
 
     # Parameters
     local_merger_rate_density = args.local_merger_rate_density
@@ -46,14 +51,18 @@ def main(args):
     merger_rate_density_func = interp1d(z, merger_rate_density)
 
     nsample = args.nsample
-    # massdistribution = pop.GWTC4_BrokenPowerlawPlusTwoPeak()
-    massdistribution = pop.GWTC4_SimpleUniformBNS()
+    if args.kind == 'bbh':
+        massdistribution = pop.GWTC4_BrokenPowerlawPlusTwoPeak()
+    elif args.kind == 'bns':
+        massdistribution = pop.GWTC4_SimpleUniformBNS()
+    else:
+        raise ValueError(f'Something wrong with args.kind, {args.kind}')
     samples = massdistribution.get_samples(nsample)
     m1sample = samples[0]
     m2sample = samples[1]
 
     # Get zbar
-    with open(f'{args.outdir}/overlap_function.pkl', 'rb') as fo:
+    with open(os.path.join(args.outdir, 'overlap_function.pkl'), 'rb') as fo:
         ofdata = pickle.load(fo)
     fsample = ofdata['f']
     zsample = ofdata['z']
@@ -91,11 +100,11 @@ def main(args):
             zbarlist.append(z_root)
 
         # Get zbar_threshold
-        snr = fg.get_inspiral_snr(fsample, m1, m2, zsample, cosmo, fg.Sn_DECIGO, ndet=number_of_baselines)
+        snr = fg.get_inspiral_snr(fsample, m1, m2, zsample, cosmo, psd, nchannel=CHANNELS)
         if np.all(snr > snr_threshold):
             z_threshold = MAXIMUM_REDSHIFT
         else:
-            x0 = get_initial_guess_for_zth(snr_threshold, mc, zlim=MAXIMUM_REDSHIFT, ndet=number_of_baselines)
+            x0 = get_initial_guess_for_zth(snr_threshold, mc, zlim=MAXIMUM_REDSHIFT, nchannel=CHANNELS)
             z_threshold = root(lambda zi: interp1d(zsample, snr, bounds_error=False, fill_value="extrapolate")(zi) - snr_threshold, x0=x0).x
         zbar_th = np.minimum(z_threshold, zbarlist)
 
@@ -104,8 +113,8 @@ def main(args):
         Omega_gw_unresolvable += fg.get_Omega_gw_with_frequncy_dependent_zrange(fsample, mc, merger_rate_density_func, cosmo, zbarlist, zupper, dz=REDSHIFT_RESOLUTION)
         Omega_gw_separable += fg.get_Omega_gw_with_frequncy_dependent_zrange(fsample, mc, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, dz=REDSHIFT_RESOLUTION)
         Omega_gw_subthreshold += fg.get_Omega_gw_with_frequncy_dependent_zrange(fsample, mc, merger_rate_density_func, cosmo, zmin=zbar_th, zmax=zbarlist, dz=REDSHIFT_RESOLUTION)
-        Omega_gw_err_nonprojected += fg.get_Omega_error_with_frequncy_dependent_zrange(fsample, m1, m2, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, psd=fg.Sn_DECIGO, ndet=number_of_baselines, dz=REDSHIFT_RESOLUTION, projection=False)
-        Omega_gw_err_projected += fg.get_Omega_error_with_frequncy_dependent_zrange(fsample, m1, m2, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, psd=fg.Sn_DECIGO, ndet=number_of_baselines, dz=REDSHIFT_RESOLUTION, projection=True)
+        Omega_gw_err_nonprojected += fg.get_Omega_error_with_frequncy_dependent_zrange(fsample, m1, m2, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, psd=psd, nchannel=CHANNELS, dz=REDSHIFT_RESOLUTION, projection=False)
+        Omega_gw_err_projected += fg.get_Omega_error_with_frequncy_dependent_zrange(fsample, m1, m2, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, psd=psd, nchannel=CHANNELS, dz=REDSHIFT_RESOLUTION, projection=True)
 
     Omega_gw_full /= nsample
     Omega_gw_unresolvable /= nsample
@@ -114,7 +123,7 @@ def main(args):
     Omega_gw_err_nonprojected /= nsample
     Omega_gw_err_projected /= nsample
 
-    with open(f'{args.outdir}/omegagw_th{snr_threshold:.1f}_rate{local_merger_rate_density:.1f}.txt', 'w') as fo:
+    with open(os.path.join(args.outdir, f'omegagw_th{snr_threshold:.1f}_rate{local_merger_rate_density:.1f}_channels{CHANNELS}.txt'), 'w') as fo:
         fo.write('# Frequency    Unresolvable    Separable    Subthreshold    Err    Err(projected)    Full\n')
         for i in range(len(fsample)):
             fo.write(f'{fsample[i]} {Omega_gw_unresolvable[i]} {Omega_gw_separable[i]} {Omega_gw_subthreshold[i]} {Omega_gw_err_nonprojected[i]} {Omega_gw_err_projected[i]} {Omega_gw_full[i]}\n')
@@ -140,34 +149,26 @@ def main(args):
     plt.loglog(fsample, Omega_gw_err_nonprojected, label='err', lw=3, linestyle='-.')
     plt.loglog(fsample, Omega_gw_err_projected, label='err(projected)', lw=3, linestyle='-.')
     plt.xlim([MINIMUM_FREQUENCY, MAXIMUM_FREQUENCY * 1.5])
-    plt.ylim([1.0e-17, 1.0e-8])
+    plt.ylim([1.0e-18, 1.0e-9])
     plt.xlabel('Frequency [Hz]')
     plt.ylabel(r'$\Omega_\mathrm{gw}(f)$')
     plt.title(f'SNR threshold = {snr_threshold:.1f}, ' + r'$R_0 = $' + f'{local_merger_rate_density:.1f}' + r'$[\mathrm{Gpc^{-3} yr^{-1}}]$', fontsize=12)
     plt.grid()
     plt.legend(fontsize=12)
-    plt.savefig(f'{args.outdir}/OmegaGWs_th{snr_threshold:.1f}_rate{local_merger_rate_density:.1f}.pdf')
+    plt.savefig(os.path.join(args.outdir, f'omegagw_th{snr_threshold:.1f}_rate{local_merger_rate_density:.1f}_channels{CHANNELS}.pdf'))
     plt.show()
 
 
 if __name__ == '__main__':
     import argparse
     # import configparser
-    parser = argparse.ArgumentParser(description="Calculate overlap function")
+    parser = argparse.ArgumentParser(description="Calculate Omega GW")
     parser.add_argument('--outdir', type=str, help='Output directory.')
-    # parser.add_argument('--kind', type=str, help='BBH or BNS')
+    parser.add_argument('--kind', type=str, choices=['bbh', 'bns'], help='CBC types, (bbh or bns)')
     parser.add_argument('--merger_rate_file', type=str, help='Path to the file of normalized merger rate density')
     parser.add_argument('--local_merger_rate_density', type=int, help='Local merger rate density in Gpc-3 yr-1')
     parser.add_argument('--nsample', type=int, help='The number of samples for MC integration.')
     parser.add_argument('--snrthreshold', type=int, help='SNR threshold')
-    parser.add_argument('--ndet', type=int, help='The number of baselines')
+    # parser.add_argument('--ndet', type=int, help='The number of baselines')
     args = parser.parse_args()
-
-    # # Generate a ConfigParser object
-    # config = configparser.ConfigParser()
-    # # Read an ini file
-    # if args.kind == 'BBH':
-    #     config.read('bbh.ini')
-    # elif args.kind == 'BNS':
-    #     config.read('bns.ini')
     main(args)
