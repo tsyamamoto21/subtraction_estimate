@@ -156,7 +156,7 @@ def main(args):
     plt.grid()
     plt.legend(fontsize=12)
     plt.savefig(os.path.join(args.outdir, f'omegagw_th{snr_threshold:.1f}_rate{local_merger_rate_density:.1f}_channels{CHANNELS}.pdf'))
-    plt.show()
+    # plt.show()
 
 
 if __name__ == '__main__':
@@ -168,7 +168,6 @@ if __name__ == '__main__':
     parser.add_argument('--merger_rate_file', type=str, help='Path to the file of normalized merger rate density')
     parser.add_argument('--local_merger_rate_density', type=int, help='Local merger rate density in Gpc-3 yr-1')
     parser.add_argument('--nsample', type=int, help='The number of samples for MC integration.')
-    parser.add_argument('--snrthreshold', type=int, help='SNR threshold')
-    # parser.add_argument('--ndet', type=int, help='The number of baselines')
+    parser.add_argument('--snrthreshold', type=float, help='SNR threshold')
     args = parser.parse_args()
     main(args)

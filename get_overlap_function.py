@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os
 import pickle
-# import logging
+import logging
 import numpy as np
 from scipy.interpolate import interp1d
 from tqdm import tqdm
@@ -35,12 +35,7 @@ class FileExistsError(Exception):
 
 
 def main(args):
-
-    # # logging
-    # logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s', filename='./get_overlap_function.log')
-
     # Files and directories
-    # normalized_merger_rate_density_file = config.get('filename', 'normalized_merger_rate_density_file')
     outdir = args.outdir
     if not os.path.exists(outdir):
         os.makedirs(outdir)
@@ -53,7 +48,12 @@ def main(args):
         # logging.error(f"File '{file_overlap_function}' already exists.")
         raise FileExistsError(f"The file '{figure_overlap_function}' already exists.")
 
-    massdistribution = pop.GWTC4_BrokenPowerlawPlusTwoPeak()
+    if args.kind == 'bbh':
+        massdistribution = pop.GWTC4_BrokenPowerlawPlusTwoPeak()
+    elif args.kind == 'bns':
+        massdistribution = pop.GWTC4_SimpleUniformBNS()
+    else:
+        raise ValueError(f'Something wrong with args.kind, {args.kind}')
     samples = massdistribution.get_samples(args.nsample)
     m1sample = samples[0]
     m2sample = samples[1]
@@ -67,14 +67,10 @@ def main(args):
 
     # Calculate overlap function
     Tmax = cosmo.age(0.0)
-    # zsample = np.arange(zmin, zmax + dz, dz)
     zsample = np.arange(MINIMUM_REDSHIFT, MAXIMUM_REDSHIFT + REDSHIFT_RESOLUTION, REDSHIFT_RESOLUTION)
     nz = len(zsample)
-    # fsample = np.logspace(np.log10(fmin), np.log10(fmax), nf, endpoint=True)
     fsample = np.logspace(np.log10(MINIMUM_FREQUENCY), np.log10(MAXIMUM_FREQUENCY), N_FREQUENCY, endpoint=True)
-    # df = (1.0 / tobs).to('s-1').value
     df = (1.0 / (OBSERVATIONAL_PERIOD * 31557600))
-    # overlap_function = np.zeros((nz, nf))
     overlap_function = np.zeros((nz, N_FREQUENCY))
     for i in tqdm(range(args.nsample)):
         m1 = m1sample[i]
@@ -102,24 +98,23 @@ def main(args):
     plt.colorbar(label=r'$\log_{10}$ [overlap function]')
     plt.savefig(figure_overlap_function)
 
+    logging.info('Completed.')
+
 
 if __name__ == '__main__':
     import argparse
-    # import configparser
     parser = argparse.ArgumentParser(description="Calculate overlap function")
+    parser.add_argument('--kind', type=str, choices=['bns', 'bbh'], help='bns or bbh')
     parser.add_argument('--outdir', type=str, help='Output directory.')
-    # parser.add_argument('--kind', type=str, help='BBH or BNS')
     parser.add_argument('--merger_rate_file', type=str, help='Path to the file of normalized merger rate density')
     parser.add_argument('--local_merger_rate_density', type=int, help='Local merger rate density in Gpc-3 yr-1')
     parser.add_argument('--nsample', type=int, help='The number of samples for MC integration.')
     parser.add_argument('--force', action='store_true')
     args = parser.parse_args()
 
-    # # Generate a ConfigParser object
-    # config = configparser.ConfigParser()
-    # # Read an ini file
-    # if args.kind == 'BBH':
-    #     config.read('bbh.ini')
-    # elif args.kind == 'BNS':
-    #     config.read('bns.ini')
+    # Setup logging
+    log_level = logging.INFO
+    logging.basicConfig(format='%(levelname)-8s | %(asctime)s | %(message)s',
+                        level=log_level, datefmt='%Y-%m-%d %H:%M:%S')
+
     main(args)

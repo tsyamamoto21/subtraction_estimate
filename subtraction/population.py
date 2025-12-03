@@ -380,3 +380,12 @@ def get_normalized_merger_rate_density(zarray, tdmin, cosmo, formation_rate_dens
 
     merger_rate_density_integral /= merger_rate_density_integral[0]
     return merger_rate_density_integral
+
+
+def get_normalized_merger_rate_density_lvko4(zarray, alpha, beta, zp):
+    '''
+    Based on LVK arxiv: https://arxiv.org/abs/2508.20721
+    Eq. 22
+    '''
+    const = 1.0 + (1.0 / (1.0 + zp))**(alpha + beta)
+    return const * (1 + zarray)**alpha / (1.0 + ((1.0 + zarray) / (1.0 + zp))**(alpha + beta))
