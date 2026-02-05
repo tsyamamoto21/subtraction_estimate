@@ -4,5 +4,6 @@ archive/
 data/
 note/
 notebook/
+reference/
 *.ipynb
 
