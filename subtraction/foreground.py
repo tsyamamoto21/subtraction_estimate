@@ -62,6 +62,10 @@ def Sn_DECIGO_SetoYagi(freq):
     return term1 + term2 + term3
 
 
+def Sn_WhiteDwarfConfusion(freq):
+    return 4.2e-47 * freq**(-7.0 / 3.0) * np.exp(-2.0 * (freq / 0.05)**2)
+
+
 # def get_bns_snrsq(freq, mc, z, cosmo, psd, ndet=1):
 #     integrand = freq**(-7.0 / 3.0) / psd
 #     integrated_quantity = np.trapz(integrand, freq) * (u.Hz**(-1.0 / 3.0))
