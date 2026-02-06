@@ -34,10 +34,15 @@ def get_initial_guess_for_zth(snr_threshold, mc, zlim, nchannel=1):
 
 def main(args):
 
+    # Get SNR theshod
     snr_threshold = args.snrthreshold
 
     # PSD
-    psd = fg.Sn_DECIGO_SetoYagi
+    psd_decigo = fg.Sn_DECIGO_SetoYagi
+    psd_wdconfution = fg.Sn_WhiteDwarfConfusion
+
+    def psd(f):
+        return psd_decigo(f) + psd_wdconfution(f)
 
     # Parameters
     local_merger_rate_density = args.local_merger_rate_density
