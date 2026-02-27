@@ -46,14 +46,6 @@ def get_zupper(farray, zmin, zmax, fmax):
     return zupper
 
 
-def Sn_DECIGO(freq):
-    """
-    DECIGO Science paper
-    """
-    fp = 7.5
-    return 1.8e-47 * (1 + (freq / fp)**2.0) + 1.2e-50 * (freq**(-4.)) / (1 + (freq / fp)**2.) + 1.0e-46 * ((freq / 0.1)**(-16.))
-
-
 def Sn_DECIGO_SetoYagi(freq):
     fp = 7.36
     term1 = 7.05e-48 * (1.0 + (freq / fp)**2)
