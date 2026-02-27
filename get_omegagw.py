@@ -34,6 +34,9 @@ def get_initial_guess_for_zth(snr_threshold, mc, zlim, nchannel=1):
 
 def main(args):
 
+    # outdir
+    os.makedirs(args.outdir, exist_ok=True)
+
     # Get SNR theshod
     snr_threshold = args.snrthreshold
 
