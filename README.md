@@ -21,7 +21,7 @@ This command will create the directory `--outdir` and the dat file of merger rat
 
 Second, you calculate the overlap function, which is the number of binaries located within one frequency bin. (Eq. (2.25) of [paper](https://arxiv.org/abs/2601.18378)). An example command is
 ```
-./get_overlap_function.py --kind bbh --outdir data/bbh --merger_rate_file data/bbh/normalized_merger_rate_density_bbh.dat --local_merger_rate_density 20 --nsmaple 1000
+./get_overlap_function.py --kind bbh --outdir data/bbh --merger_rate_file data/bbh/normalized_merger_rate_density_bbh.dat --local_merger_rate_density 20 --nsample 1000
 ```
 
 Finally, you estimate the foreground. The sample code is
