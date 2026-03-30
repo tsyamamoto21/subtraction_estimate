@@ -14,8 +14,10 @@ import matplotlib as mpl
 mpl.rcParams['font.size'] = 14
 mpl.rcParams['figure.figsize'] = (8, 6)
 
+np.seterr(divide='raise', invalid='raise')
+
 REDSHIFT_RESOLUTION = 1e-3
-MINIMUM_REDSHIFT = 0
+MINIMUM_REDSHIFT = 1e-5
 MAXIMUM_REDSHIFT = 10
 MINIMUM_FREQUENCY = 1e-4
 MAXIMUM_FREQUENCY = 1e+4
@@ -67,10 +69,12 @@ def main(args):
     m2sample = samples[1]
 
     # Get zbar
-    with open(os.path.join(args.outdir, 'overlap_function.pkl'), 'rb') as fo:
-        ofdata = pickle.load(fo)
+    ofdata = np.load(os.path.join(args.outdir, 'overlap_function.npz'))
     fsample = ofdata['f']
     zsample = ofdata['z']
+    ofdata = ofdata['overlap_function']
+    if zsample[0] < MINIMUM_REDSHIFT:
+        zsample[0] = MINIMUM_REDSHIFT
 
     Omega_gw_full = 0
     Omega_gw_unresolvable = 0
@@ -94,7 +98,7 @@ def main(args):
         zbarlist = []
         # flgs_all_less_unity = []
         for j in range(N_FREQUENCY):
-            n_overlap = ofdata['overlap function'][:, j]
+            n_overlap = ofdata[:, j]
             if np.all(n_overlap < 1.0):
                 z_root = zupper[j]
                 # flgs_all_less_unity.append(1)

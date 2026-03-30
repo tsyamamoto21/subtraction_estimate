@@ -17,8 +17,8 @@ mpl.rcParams['figure.figsize'] = (8, 6)
 MINIMUM_REDSHIFT = 0
 MAXIMUM_REDSHIFT = 10
 REDSHIFT_RESOLUTION = 0.01
-MINIMUM_FREQUENCY = 1e-4
-MAXIMUM_FREQUENCY = 1e+4
+MINIMUM_FREQUENCY = 1.0e-4
+MAXIMUM_FREQUENCY = 1.0e+4
 N_FREQUENCY = 200
 OBSERVATIONAL_PERIOD = 3
 
@@ -82,10 +82,6 @@ def main(args):
         zlower = get_zlower(fsample, MINIMUM_REDSHIFT, MAXIMUM_REDSHIFT, fmin_tmax)
         overlap_function += get_overlap_function(fsample, df, zlower, [MINIMUM_REDSHIFT, MAXIMUM_REDSHIFT], merger_rate_density_func, cosmo, d2, dz=REDSHIFT_RESOLUTION).T
     overlap_function /= args.nsample
-
-    # Save overlap function
-    with open(file_overlap_function, 'wb') as fo:
-        pickle.dump({'f': fsample, 'z': zsample, 'overlap function': overlap_function}, fo)
 
     # Save overlap function
     np.savez_compressed(
