@@ -333,7 +333,7 @@ def get_average_log10metallicity(zarray, cosmo, dz=1e-3):
     for i in range(nz):
         mask[i] = zdummy >= zarray[i]
     integrand *= mask
-    integ = np.trapz(integrand, zdummy, axis=-1)
+    integ = np.trapezoid(integrand, zdummy, axis=-1)
     return 0.5 + np.log10(metalyield * (1.0 - return_fraction) / rhob * integ)
 
 
@@ -376,7 +376,7 @@ def get_normalized_merger_rate_density(zarray, tdmin, cosmo, formation_rate_dens
         rhofdot = formation_rate_density_func(zfsamples)
         td = get_time_delay(zsample, zfsamples, cosmo)
         integrand = rhofdot / (1 + zfsamples)**2 / cosmo.H(zfsamples).to('Myr-1').value / td
-        merger_rate_density_integral[i] = np.trapz(integrand, zfsamples)
+        merger_rate_density_integral[i] = np.trapezoid(integrand, zfsamples)
 
     merger_rate_density_integral /= merger_rate_density_integral[0]
     return merger_rate_density_integral
