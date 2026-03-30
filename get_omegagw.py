@@ -20,9 +20,6 @@ MAXIMUM_REDSHIFT = 10
 MINIMUM_FREQUENCY = 1e-4
 MAXIMUM_FREQUENCY = 1e+4
 N_FREQUENCY = 200
-OBSERVATIONAL_PERIOD = 3
-CHANNELS = 8  # (A, E) x 4 triangles
-CORRELATIONS = 2  # AA' and EE' from Davide's star
 
 
 def get_initial_guess_for_zth(snr_threshold, mc, zlim, nchannel=1):
@@ -108,11 +105,11 @@ def main(args):
             zbarlist.append(z_root)
 
         # Get zbar_threshold
-        snr = fg.get_inspiral_snr(fsample, m1, m2, zsample, cosmo, psd, nchannel=CHANNELS)
+        snr = fg.get_inspiral_snr(fsample, m1, m2, zsample, cosmo, psd, nchannel=args.nchannels)
         if np.all(snr > snr_threshold):
             z_threshold = MAXIMUM_REDSHIFT
         else:
-            x0 = get_initial_guess_for_zth(snr_threshold, mc, zlim=MAXIMUM_REDSHIFT, nchannel=CHANNELS)
+            x0 = get_initial_guess_for_zth(snr_threshold, mc, zlim=MAXIMUM_REDSHIFT, nchannel=args.nchannels)
             z_threshold = root(lambda zi: interp1d(zsample, snr, bounds_error=False, fill_value="extrapolate")(zi) - snr_threshold, x0=x0).x
         zbar_th = np.minimum(z_threshold, zbarlist)
 
@@ -121,8 +118,8 @@ def main(args):
         Omega_gw_unresolvable += fg.get_Omega_gw_with_frequncy_dependent_zrange(fsample, mc, merger_rate_density_func, cosmo, zbarlist, zupper, dz=REDSHIFT_RESOLUTION)
         Omega_gw_separable += fg.get_Omega_gw_with_frequncy_dependent_zrange(fsample, mc, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, dz=REDSHIFT_RESOLUTION)
         Omega_gw_subthreshold += fg.get_Omega_gw_with_frequncy_dependent_zrange(fsample, mc, merger_rate_density_func, cosmo, zmin=zbar_th, zmax=zbarlist, dz=REDSHIFT_RESOLUTION)
-        Omega_gw_err_nonprojected += fg.get_Omega_error_with_frequncy_dependent_zrange(fsample, m1, m2, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, psd=psd, nchannel=CHANNELS, dz=REDSHIFT_RESOLUTION, projection=False)
-        Omega_gw_err_projected += fg.get_Omega_error_with_frequncy_dependent_zrange(fsample, m1, m2, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, psd=psd, nchannel=CHANNELS, dz=REDSHIFT_RESOLUTION, projection=True)
+        Omega_gw_err_nonprojected += fg.get_Omega_error_with_frequncy_dependent_zrange(fsample, m1, m2, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, psd=psd, nchannel=args.nchannels, dz=REDSHIFT_RESOLUTION, projection=False)
+        Omega_gw_err_projected += fg.get_Omega_error_with_frequncy_dependent_zrange(fsample, m1, m2, merger_rate_density_func, cosmo, zmin=zlower, zmax=zbar_th, psd=psd, nchannel=args.nchannels, dz=REDSHIFT_RESOLUTION, projection=True)
 
     Omega_gw_full /= nsample
     Omega_gw_unresolvable /= nsample
@@ -131,7 +128,7 @@ def main(args):
     Omega_gw_err_nonprojected /= nsample
     Omega_gw_err_projected /= nsample
 
-    with open(os.path.join(args.outdir, f'omegagw_th{snr_threshold:.1f}_rate{local_merger_rate_density:.1f}_channels{CHANNELS}.txt'), 'w') as fo:
+    with open(os.path.join(args.outdir, f'omegagw_th{snr_threshold:.1f}_rate{local_merger_rate_density:.1f}_channels{args.nchannels}.txt'), 'w') as fo:
         fo.write('# Frequency    Unresolvable    Separable    Subthreshold    Err    Err(projected)    Full\n')
         for i in range(len(fsample)):
             fo.write(f'{fsample[i]} {Omega_gw_unresolvable[i]} {Omega_gw_separable[i]} {Omega_gw_subthreshold[i]} {Omega_gw_err_nonprojected[i]} {Omega_gw_err_projected[i]} {Omega_gw_full[i]}\n')
@@ -163,7 +160,7 @@ def main(args):
     plt.title(f'SNR threshold = {snr_threshold:.1f}, ' + r'$R_0 = $' + f'{local_merger_rate_density:.1f}' + r'$[\mathrm{Gpc^{-3} yr^{-1}}]$', fontsize=12)
     plt.grid()
     plt.legend(fontsize=12)
-    plt.savefig(os.path.join(args.outdir, f'omegagw_th{snr_threshold:.1f}_rate{local_merger_rate_density:.1f}_channels{CHANNELS}.pdf'))
+    plt.savefig(os.path.join(args.outdir, f'omegagw_th{snr_threshold:.1f}_rate{local_merger_rate_density:.1f}_channels{args.nchannels}.pdf'))
     # plt.show()
 
 
@@ -177,5 +174,6 @@ if __name__ == '__main__':
     parser.add_argument('--local_merger_rate_density', type=int, help='Local merger rate density in Gpc-3 yr-1')
     parser.add_argument('--nsample', type=int, help='The number of samples for MC integration.')
     parser.add_argument('--snrthreshold', type=float, help='SNR threshold')
+    parser.add_argument('--nchannels', type=int, default=8, help='The number of channels')
     args = parser.parse_args()
     main(args)
