@@ -17,7 +17,7 @@ def get_Omega_gw_with_frequncy_dependent_zrange(farray, mc, merger_rate_density_
         hubble_unit = Hubble.unit
         Hubble_value = Hubble.value
         integrand = merger_rate_density_func(zsample) / (1.0 + zsample)**(4.0 / 3.0) / Hubble_value
-        integrated_value = np.trapz(integrand, zsample)
+        integrated_value = np.trapezoid(integrand, zsample)
         integrated_value = integrated_value / hubble_unit / (u.Gpc**3) / (u.yr)
         factor = (np.pi**(2.0 / 3.0) / 3.0) * (G * M_sun * mc)**(5.0 / 3.0) * (fsample * u.Hz)**(2.0 / 3.0) / G / cosmo.critical_density0 / c**2
         Omega_gw[j] = (factor * integrated_value).decompose()
@@ -60,7 +60,7 @@ def Sn_WhiteDwarfConfusion(freq):
 
 # def get_bns_snrsq(freq, mc, z, cosmo, psd, ndet=1):
 #     integrand = freq**(-7.0 / 3.0) / psd
-#     integrated_quantity = np.trapz(integrand, freq) * (u.Hz**(-1.0 / 3.0))
+#     integrated_quantity = np.trapezoid(integrand, freq) * (u.Hz**(-1.0 / 3.0))
 #     dl = cosmo.luminosity_distance(z)
 #     factor = (c / dl)**2 * (G * M_sun * mc * (1 + z) / c**3)**(5 / 3) / (10.0 * np.pi**(4.0 / 3.0))
 #     return ndet * factor.to('Hz(1/3)') * integrated_quantity
@@ -74,7 +74,7 @@ def get_inspiral_snr(freq, m1, m2, z, cosmo, psd_func, nchannel=1, tobs=3):
     fmin = ((tobs * u.yr / d2)**(-3.0 / 8.0)).to('s-1').value
     freq = np.tile(freq, (nz, 1))
     mask = (fmin / (1 + z.reshape(nz, 1)) <= freq) * (freq <= fmax / (1 + z.reshape(nz, 1)))
-    integrated_quantity = np.trapz(mask * freq**(-7.0 / 3.0) / psd_func(freq), freq, axis=-1)
+    integrated_quantity = np.trapezoid(mask * freq**(-7.0 / 3.0) / psd_func(freq), freq, axis=-1)
     dl = cosmo.luminosity_distance(z)
     factor = ((c / dl)**2 * (G * M_sun * mc * (1 + z) / c**3)**(5 / 3) / (10.0 * np.pi**(4.0 / 3.0))).si.value
     return np.sqrt(nchannel * factor * integrated_quantity)
@@ -83,7 +83,7 @@ def get_inspiral_snr(freq, m1, m2, z, cosmo, psd_func, nchannel=1, tobs=3):
 def get_snr_of_sgwb(freq, omega_gw, psd, cosmo, duration=3, orf=1.0, ncorrelation=1):
     factor = (3.0 / 10.0 / np.pi**2) * (cosmo.H0**2) * np.sqrt(2.0 * duration * u.yr)
     integrand = orf**2 * omega_gw**2 / (freq**6) / (psd**2)
-    integrated_quantity = np.trapz(integrand, freq) / (u.Hz**3)
+    integrated_quantity = np.trapezoid(integrand, freq) / (u.Hz**3)
     return (factor * np.sqrt(integrated_quantity)).decompose() * np.sqrt(ncorrelation)
 
 
@@ -126,7 +126,7 @@ def get_Omega_error_with_frequncy_dependent_zrange(farray, m1, m2, merger_rate_d
 
     for j, fsample in enumerate(farray):
         mask = (zmin[j] <= zsample) * (zsample <= zmax[j])
-        integrated_value = np.trapz(integrand * mask, zsample)
+        integrated_value = np.trapezoid(integrand * mask, zsample)
         integrated_value = integrated_value / hubble_unit / (u.Gpc**3) / (u.yr)
         factor = (np.pi**(2.0 / 3.0) / 3.0) * (G * M_sun * mc)**(5.0 / 3.0) * (fsample * u.Hz)**(2.0 / 3.0) / G / cosmo.critical_density0 / c**2
         Omega_gw[j] = (factor * integrated_value).decompose()
