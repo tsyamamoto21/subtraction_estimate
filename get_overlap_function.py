@@ -39,7 +39,7 @@ def main(args):
     outdir = args.outdir
     if not os.path.exists(outdir):
         os.makedirs(outdir)
-    file_overlap_function = os.path.join(outdir, 'overlap_function.pkl')
+    file_overlap_function = os.path.join(outdir, 'overlap_function.npz')
     figure_overlap_function = os.path.join(outdir, 'overlap_function.pdf')
     if os.path.exists(file_overlap_function) and (not args.force):
         # logging.error(f"File '{file_overlap_function}' already exists.")
@@ -86,6 +86,14 @@ def main(args):
     # Save overlap function
     with open(file_overlap_function, 'wb') as fo:
         pickle.dump({'f': fsample, 'z': zsample, 'overlap function': overlap_function}, fo)
+
+    # Save overlap function
+    np.savez_compressed(
+        file_overlap_function,
+        f=fsample,
+        z=zsample,
+        overlap_function=overlap_function
+    )
 
     # plot overlap function
     plt.figure()
